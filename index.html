@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MNQ Live Scanner</title>
+<style>
+:root {
+  --bg0:#06060E;--bg1:#0D0D1A;--bg2:#141428;--bg3:#1C1C36;--bg4:#242444;
+  --border:#2A2A50;--border2:#383870;
+  --text:#F0F0FF;--text2:#8080B0;--text3:#4A4A70;
+  --green:#00FF9D;--green2:#00CC7A;--green-bg:#002A1A;--green-dim:#00994D;
+  --red:#FF3060;--red2:#CC2050;--red-bg:#2A0010;--red-dim:#992030;
+  --amber:#FFB020;--amber-bg:#2A1A00;--amber-dim:#996010;
+  --blue:#4080FF;--blue-bg:#001040;--blue-dim:#204090;
+  --purple:#A060FF;--purple-bg:#1A0040;
+  --cyan:#00D4FF;--cyan-bg:#001A2A;
+  --r:10px;--rs:6px;--rxs:4px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg0);color:var(--text);font-family:'SF Mono','Fira Code','Consolas',monospace;font-size:13px;min-height:100vh;line-height:1.5}
+
+/* TICKER TAPE */
+.tape{background:var(--bg1);border-bottom:1px solid var(--border);padding:6px 0;overflow:hidden;white-space:nowrap}
+.tape-inner{display:inline-flex;gap:32px;animation:tape 30s linear infinite}
+@keyframes tape{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.tape-item{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.tape-sym{color:var(--text);font-weight:700}
+.tape-up{color:var(--green)}
+.tape-dn{color:var(--red)}
+
+/* HEADER */
+.hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:28px;height:28px;border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative}
+.logo-mark::after{content:'';position:absolute;width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
+.logo-text{font-size:15px;font-weight:700;letter-spacing:2px;color:var(--text)}
+.logo-text span{color:var(--green)}
+.hdr-mid{display:flex;align-items:center;gap:12px}
+.session-pill{font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.08em;text-transform:uppercase}
+.pill-active{background:var(--green-bg);color:var(--green);border:1px solid var(--green2);animation:glow .8s ease-in-out infinite alternate}
+@keyframes glow{from{box-shadow:0 0 4px var(--green2)}to{box-shadow:0 0 12px var(--green)}}
+.pill-inactive{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s ease-in-out infinite}
+.live-label{font-size:11px;color:var(--green);font-weight:700;letter-spacing:.1em}
+#last-update{font-size:10px;color:var(--text3)}
+
+/* API SETUP BANNER */
+.api-banner{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1rem;display:flex;gap:12px;align-items:flex-start}
+.api-banner.hidden{display:none}
+
+/* LAYOUT */
+.wrap{max-width:1300px;margin:0 auto;padding:1.25rem}
+.main-grid{display:grid;grid-template-columns:340px 1fr;gap:1rem}
+@media(max-width:900px){.main-grid{grid-template-columns:1fr}}
+
+/* CARDS */
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text2);margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between}
+.card-title span{color:var(--text3);font-weight:400;font-size:10px;text-transform:none;letter-spacing:0}
+
+/* SIGNAL BOX — the hero element */
+.signal-box{border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;border:1px solid;transition:all .3s}
+.signal-none{background:var(--bg2);border-color:var(--border)}
+.signal-bull{background:linear-gradient(135deg,var(--green-bg),#001A10);border-color:var(--green2);box-shadow:0 0 30px rgba(0,255,157,.08)}
+.signal-bear{background:linear-gradient(135deg,var(--red-bg),#1A0008);border-color:var(--red2);box-shadow:0 0 30px rgba(255,48,96,.08)}
+.signal-watch{background:linear-gradient(135deg,var(--amber-bg),#1A1000);border-color:var(--amber-dim)}
+.signal-grade{font-size:32px;font-weight:800;line-height:1;margin-bottom:4px;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+.signal-type{font-size:13px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem}
+.signal-desc{font-size:12px;color:var(--text2);line-height:1.65}
+
+/* TRADE PLAN */
+.trade-plan{background:var(--bg2);border-radius:var(--rs);padding:1rem;margin-top:.85rem;border:1px solid var(--border)}
+.plan-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.plan-row:last-child{border-bottom:none}
+.plan-label{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.plan-val{font-weight:700;font-family:monospace;font-size:14px}
+
+/* LEVELS */
+.level-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.level-row:last-child{border-bottom:none}
+.level-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.level-name{color:var(--text2);min-width:100px;font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+.level-price{font-weight:700;color:var(--text);font-family:monospace;min-width:70px}
+.level-dist{font-size:10px;color:var(--text3);margin-left:auto}
+
+/* CANDLES */
+.candle-strip{display:flex;align-items:flex-end;gap:3px;height:80px;margin:.5rem 0;padding:.5rem;background:var(--bg2);border-radius:var(--rs);overflow:hidden}
+.candle-wrap{display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end}
+.candle-wick{width:1px;background:var(--text3)}
+.candle-body{width:70%;border-radius:1px;min-height:2px}
+.c-bull .candle-body{background:var(--green2)}
+.c-bear .candle-body{background:var(--red2)}
+.c-c1 .candle-body{background:var(--blue-dim);border:1px solid var(--blue)}
+.c-c2 .candle-body{background:var(--purple-bg);border:1px solid var(--purple)}
+.c-c3 .candle-body{background:var(--green2);border:1px solid var(--green);box-shadow:0 0 6px var(--green2)}
+.candle-label{font-size:8px;color:var(--text3);margin-top:2px;text-align:center}
+
+/* CHIPS */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.75rem}
+.chip{font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.07em;text-transform:uppercase}
+.chip-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-dim)}
+.chip-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-dim)}
+.chip-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-dim)}
+.chip-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-dim)}
+.chip-purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple)}
+.chip-dim{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.75rem}
+.stat-box{background:var(--bg2);border-radius:var(--rs);padding:.7rem .85rem;border:1px solid var(--border)}
+.stat-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
+.stat-val{font-size:18px;font-weight:800;line-height:1;font-family:monospace}
+.stat-sub{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* CHECKLIST */
+.check-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.check-item:last-child{border-bottom:none}
+.check-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+
+/* NEWS */
+.news-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.news-item:last-child{border-bottom:none}
+.news-time{font-size:10px;color:var(--text3);margin-bottom:2px}
+.news-title{color:var(--text2);line-height:1.4}
+.news-impact{font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;display:inline-block;margin-top:3px}
+.impact-high{background:var(--red-bg);color:var(--red)}
+.impact-med{background:var(--amber-bg);color:var(--amber)}
+.impact-low{background:var(--bg3);color:var(--text3)}
+
+/* BUTTONS */
+.btn{font-size:12px;font-weight:700;padding:7px 18px;border-radius:var(--rs);border:none;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.btn-green{background:var(--green);color:#000}
+.btn-green:hover{background:var(--green2)}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--text);color:var(--text)}
+
+/* SESSION CLOCK */
+.session-clocks{display:flex;gap:.6rem;margin-bottom:1rem}
+.sclock{flex:1;background:var(--bg2);border-radius:var(--rs);padding:.6rem .75rem;border:1px solid var(--border);text-align:center}
+.sclock.active{border-color:var(--green);background:var(--green-bg)}
+.sclock-name{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
+.sclock.active .sclock-name{color:var(--green)}
+.sclock-time{font-size:13px;font-weight:700;color:var(--text);font-family:monospace}
+.sclock.active .sclock-time{color:var(--green)}
+.sclock-status{font-size:9px;color:var(--text3);margin-top:2px}
+.sclock.active .sclock-status{color:var(--green-dim)}
+
+/* SMT PANEL */
+.smt-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.smt-box{background:var(--bg2);border-radius:var(--rs);padding:.75rem;border:1px solid var(--border)}
+.smt-sym{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px}
+.smt-price{font-size:20px;font-weight:800;color:var(--text);font-family:monospace}
+.smt-change{font-size:11px;margin-top:2px;font-weight:700}
+.smt-diverge{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--rs);padding:.6rem .75rem;margin-top:.6rem;font-size:11px;color:var(--amber);display:none}
+.smt-diverge.show{display:block}
+.smt-confirm{background:var(--green-bg);border:1px solid var(--green2);border-radius:var(--rs);padding:.6rem .75rem;margin-top:.6rem;font-size:11px;color:var(--green);display:none}
+.smt-confirm.show{display:block}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ALERT TOAST */
+.toast{position:fixed;top:70px;right:20px;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);padding:1rem 1.25rem;z-index:999;font-size:13px;color:var(--green);max-width:320px;box-shadow:0 8px 32px rgba(0,255,157,.2);transform:translateX(120%);transition:transform .3s ease}
+.toast.show{transform:translateX(0)}
+.toast-title{font-weight:700;font-size:14px;margin-bottom:4px}
+.toast-body{color:var(--green-dim);font-size:12px;line-height:1.5}
+
+/* API KEY FORM */
+.api-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:.65rem}
+.api-input{flex:1;min-width:200px;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:monospace;outline:none}
+.api-input:focus{border-color:var(--green)}
+.api-note{font-size:11px;color:var(--text2);line-height:1.55}
+
+/* REFRESH */
+.refresh-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.refresh-info{font-size:11px;color:var(--text3)}
+.auto-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+input[type=checkbox]{accent-color:var(--green);cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- TICKER TAPE -->
+<div class="tape">
+  <div class="tape-inner" id="tape-inner">
+    <span class="tape-item"><span class="tape-sym">MNQ</span><span id="tape-mnq">—</span></span>
+    <span class="tape-item"><span class="tape-sym">NQ1!</span><span id="tape-nq">—</span></span>
+    <span class="tape-item"><span class="tape-sym">ES1!</span><span id="tape-es">—</span></span>
+    <span class="tape-item"><span class="tape-sym">Session</span><span id="tape-session">—</span></span>
+    <span class="tape-item"><span class="tape-sym">Signal</span><span id="tape-signal">scanning...</span></span>
+    <!-- duplicate for seamless loop -->
+    <span class="tape-item"><span class="tape-sym">MNQ</span><span id="tape-mnq2">—</span></span>
+    <span class="tape-item"><span class="tape-sym">NQ1!</span><span id="tape-nq2">—</span></span>
+    <span class="tape-item"><span class="tape-sym">ES1!</span><span id="tape-es2">—</span></span>
+    <span class="tape-item"><span class="tape-sym">Session</span><span id="tape-session2">—</span></span>
+    <span class="tape-item"><span class="tape-sym">Signal</span><span id="tape-signal2">scanning...</span></span>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div class="logo-text">MNQ <span>SCANNER</span></div>
+  </div>
+  <div class="hdr-mid">
+    <div class="session-pill pill-inactive" id="session-pill">Loading session...</div>
+    <div id="et-clock" style="font-size:12px;color:var(--text2);font-family:monospace"></div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-dot"></div>
+    <div class="live-label">LIVE</div>
+    <div id="last-update">—</div>
+    <button class="btn btn-green" onclick="scanNow()">↺ Scan now</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-title" id="toast-title"></div>
+  <div class="toast-body" id="toast-body"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- API SETUP BANNER -->
+  <div class="api-banner" id="api-banner">
+    <div style="font-size:18px;flex-shrink:0">🔑</div>
+    <div style="flex:1">
+      <div style="font-weight:700;color:var(--amber);margin-bottom:4px">Connect your free market data API key to go live</div>
+      <div class="api-note">This scanner uses <strong>Twelve Data</strong> (free tier — 800 calls/day, no credit card). Takes 2 minutes to set up.<br>
+        1. Go to <a href="https://twelvedata.com" target="_blank" style="color:var(--cyan)">twelvedata.com</a> → Sign up free → Copy your API key<br>
+        2. Paste it below and click Connect. Your key is saved locally — never sent anywhere except Twelve Data.
+      </div>
+      <div class="api-form">
+        <input type="text" class="api-input" id="api-key-input" placeholder="Paste your Twelve Data API key here...">
+        <button class="btn btn-green" onclick="connectApi()">Connect</button>
+        <button class="btn btn-ghost" onclick="loadDemo()">Use demo data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REFRESH BAR -->
+  <div class="refresh-bar">
+    <div class="refresh-info" id="refresh-info">Not connected — enter API key above or use demo data</div>
+    <div class="auto-toggle">
+      <input type="checkbox" id="auto-refresh" onchange="toggleAuto(this.checked)">
+      <label for="auto-refresh">Auto-refresh every 5 min</label>
+    </div>
+  </div>
+
+  <!-- SESSION CLOCKS -->
+  <div class="session-clocks">
+    <div class="sclock" id="sc-asia"><div class="sclock-name">Asia</div><div class="sclock-time">7–10pm ET</div><div class="sclock-status" id="sc-asia-s">—</div></div>
+    <div class="sclock" id="sc-pm"><div class="sclock-name">Pre-market</div><div class="sclock-time">7–9:30am ET</div><div class="sclock-status" id="sc-pm-s">—</div></div>
+    <div class="sclock" id="sc-ny"><div class="sclock-name">NY Morning</div><div class="sclock-time">9:30–11:30am ET</div><div class="sclock-status" id="sc-ny-s">—</div></div>
+    <div class="sclock" id="sc-off"><div class="sclock-name">Off hours</div><div class="sclock-time">—</div><div class="sclock-status">Low probability</div></div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- LEFT COLUMN -->
+    <div>
+
+      <!-- SIGNAL BOX -->
+      <div class="signal-box signal-none" id="signal-box">
+        <div class="chips" id="signal-chips">
+          <span class="chip chip-dim">SCANNING</span>
+        </div>
+        <div class="signal-grade" id="signal-grade" style="color:var(--text3)">—</div>
+        <div class="signal-type" id="signal-type" style="color:var(--text3)">No active signal</div>
+        <div class="signal-desc" id="signal-desc">Connect your API key or load demo data to begin scanning for CRT setups in real time.</div>
+
+        <!-- TRADE PLAN -->
+        <div class="trade-plan" id="trade-plan" style="display:none">
+          <div class="plan-row">
+            <span class="plan-label">Entry</span>
+            <span class="plan-val" id="plan-entry" style="color:var(--cyan)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Stop loss</span>
+            <span class="plan-val" id="plan-sl" style="color:var(--red)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">TP1 (1.5R)</span>
+            <span class="plan-val" id="plan-tp1" style="color:var(--green)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">TP2 (2.5R)</span>
+            <span class="plan-val" id="plan-tp2" style="color:var(--green2)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Stop size</span>
+            <span class="plan-val" id="plan-stop-pts">— pts</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Risk @ 2 MNQ</span>
+            <span class="plan-val" id="plan-risk2" style="color:var(--red)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Win @ 2 MNQ (1.5R)</span>
+            <span class="plan-val" id="plan-win2" style="color:var(--green)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Risk @ 3 MNQ</span>
+            <span class="plan-val" id="plan-risk3" style="color:var(--red)">—</span>
+          </div>
+          <div class="plan-row">
+            <span class="plan-label">Win @ 3 MNQ (1.5R)</span>
+            <span class="plan-val" id="plan-win3" style="color:var(--green)">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CANDLE VISUALIZER -->
+      <div class="card">
+        <div class="card-title">Last 12 candles (5M) <span id="candle-time-label">—</span></div>
+        <div class="candle-strip" id="candle-strip">
+          <div style="color:var(--text3);font-size:11px;margin:auto">No data — connect API or load demo</div>
+        </div>
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--text3);margin-top:.4rem">
+          <span><span style="color:var(--blue)">■</span> C1 reference</span>
+          <span><span style="color:var(--purple)">■</span> C2 sweep</span>
+          <span><span style="color:var(--green)">■</span> C3 confirm</span>
+          <span><span style="color:var(--green2)">■</span> Bullish</span>
+          <span><span style="color:var(--red2)">■</span> Bearish</span>
+        </div>
+      </div>
+
+      <!-- PRE-TRADE CHECKLIST -->
+      <div class="card">
+        <div class="card-title">Pre-trade checklist</div>
+        <div id="checklist-items">
+          <div class="check-item"><span class="check-icon">⬜</span>HTF bias confirmed (4H + 1H agree)</div>
+          <div class="check-item"><span class="check-icon">⬜</span>In a kill zone session (pre-mkt or NY morning)</div>
+          <div class="check-item"><span class="check-icon">⬜</span>C1 candle at a key level (PDH/PDL/Asia/FVG)</div>
+          <div class="check-item"><span class="check-icon">⬜</span>C2 swept level AND closed back inside</div>
+          <div class="check-item"><span class="check-icon">⬜</span>C3 confirmed direction (don't enter on C2)</div>
+          <div class="check-item"><span class="check-icon">⬜</span>SMT divergence checked on ES</div>
+          <div class="check-item"><span class="check-icon">⬜</span>No major news in next 30 min</div>
+          <div class="check-item"><span class="check-icon">⬜</span>Stop beyond C2 wick — not inside range</div>
+          <div class="check-item"><span class="check-icon">⬜</span>Risk ≤ 10% of Lucid drawdown buffer</div>
+          <div class="check-item"><span class="check-icon">⬜</span>Daily target not already hit</div>
+        </div>
+        <button class="btn btn-ghost" style="margin-top:.75rem;width:100%;font-size:11px" onclick="resetChecklist()">Reset checklist</button>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+
+      <!-- LIVE PRICES + SMT -->
+      <div class="card">
+        <div class="card-title">Live prices — NQ vs ES (SMT monitor)</div>
+        <div class="smt-grid">
+          <div class="smt-box">
+            <div class="smt-sym">NQ / MNQ</div>
+            <div class="smt-price" id="smt-nq-price">—</div>
+            <div class="smt-change" id="smt-nq-change">—</div>
+            <div style="margin-top:.5rem;font-size:10px;color:var(--text3)">Session H: <span id="smt-nq-sh" style="color:var(--text2)">—</span> | L: <span id="smt-nq-sl" style="color:var(--text2)">—</span></div>
+          </div>
+          <div class="smt-box">
+            <div class="smt-sym">ES (S&P 500)</div>
+            <div class="smt-price" id="smt-es-price">—</div>
+            <div class="smt-change" id="smt-es-change">—</div>
+            <div style="margin-top:.5rem;font-size:10px;color:var(--text3)">Session H: <span id="smt-es-sh" style="color:var(--text2)">—</span> | L: <span id="smt-es-sl" style="color:var(--text2)">—</span></div>
+          </div>
+        </div>
+        <div class="smt-diverge" id="smt-diverge">⚡ SMT DIVERGENCE DETECTED — NQ and ES are NOT confirming each other's extremes. This is a strong CRT filter signal. Check direction before entering.</div>
+        <div class="smt-confirm" id="smt-confirm">✓ NQ and ES moving together — no SMT divergence at this moment.</div>
+      </div>
+
+      <!-- KEY LEVELS -->
+      <div class="card">
+        <div class="card-title">Key levels <span id="levels-updated">—</span></div>
+        <div id="levels-list">
+          <div style="color:var(--text3);font-size:12px;padding:.5rem 0">Connect API or load demo to see live levels</div>
+        </div>
+      </div>
+
+      <!-- HTF BIAS READING -->
+      <div class="card">
+        <div class="card-title">HTF bias reading</div>
+        <div id="htf-bias-box">
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-label">4H trend</div><div class="stat-val" id="htf-4h" style="font-size:14px;color:var(--text3)">—</div></div>
+            <div class="stat-box"><div class="stat-label">1H structure</div><div class="stat-val" id="htf-1h" style="font-size:14px;color:var(--text3)">—</div></div>
+            <div class="stat-box"><div class="stat-label">Price zone</div><div class="stat-val" id="htf-zone" style="font-size:14px;color:var(--text3)">—</div></div>
+            <div class="stat-box"><div class="stat-label">Bias</div><div class="stat-val" id="htf-bias" style="font-size:14px;color:var(--text3)">—</div></div>
+          </div>
+          <div style="background:var(--bg2);border-radius:var(--rs);padding:.75rem 1rem;font-size:12px;color:var(--text2);line-height:1.65;border:1px solid var(--border)" id="htf-sentence">
+            Connect API or load demo data to see HTF bias analysis.
+          </div>
+        </div>
+      </div>
+
+      <!-- SCAN LOG -->
+      <div class="card">
+        <div class="card-title">Scan log <span id="scan-count">0 scans</span></div>
+        <div id="scan-log" style="max-height:200px;overflow-y:auto">
+          <div style="color:var(--text3);font-size:12px;padding:.25rem 0">No scans yet</div>
+        </div>
+      </div>
+
+      <!-- IMPORTANT NOTICE -->
+      <div class="card" style="border-color:var(--amber-dim)">
+        <div class="card-title" style="color:var(--amber)">How to use this scanner</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.75">
+          <strong style="color:var(--text)">1. Connect API</strong> — free Twelve Data key (800 calls/day free tier)<br>
+          <strong style="color:var(--text)">2. Refresh before sessions</strong> — check before Asia, pre-market, and NY open<br>
+          <strong style="color:var(--text)">3. When a setup fires</strong> — review the trade plan, verify on your TradingView chart<br>
+          <strong style="color:var(--text)">4. Confirm manually</strong> — Pine Script alert should also fire on TradingView<br>
+          <strong style="color:var(--text)">5. You click the button</strong> — always your decision, always manual execution<br><br>
+          <span style="color:var(--amber)">⚠ This is a decision-support tool. Always verify on your chart before entering any trade. Past signals do not guarantee future performance.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════ STATE ═══════════════
+var API_KEY = localStorage.getItem('td_api_key') || '';
+var scanCount = 0;
+var autoInterval = null;
+var lastNQCandles = [];
+var lastESCandles = [];
+var currentSignal = null;
+var isDemoMode = false;
+
+// ═══════════════ INIT ═══════════════
+window.addEventListener('load', function() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  updateSessionStatus();
+  setInterval(updateSessionStatus, 60000);
+  buildChecklist();
+
+  if (API_KEY) {
+    document.getElementById('api-banner').classList.add('hidden');
+    document.getElementById('api-key-input').value = API_KEY;
+    document.getElementById('refresh-info').textContent = 'API connected — click Scan Now to load data';
+    scanNow();
+  }
+});
+
+// ═══════════════ CLOCK ═══════════════
+function updateClock() {
+  var now = new Date();
+  var et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  var h = et.getHours(), m = et.getMinutes(), s = et.getSeconds();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12 || 12;
+  document.getElementById('et-clock').textContent =
+    h12 + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + ' ET';
+}
+
+// ═══════════════ SESSION STATUS ═══════════════
+function getSessionInfo() {
+  var now = new Date();
+  var et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  var h = et.getHours(), m = et.getMinutes();
+  var mins = h * 60 + m;
+  // Asia: 7pm–10pm = 1140–1320
+  // Pre-market: 7am–9:30am = 420–570
+  // NY Morning: 9:30am–11:30am = 570–690
+  if (mins >= 1140 || mins < 1320 && mins >= 1140) return { name:'Asia', key:'asia', active:true };
+  if (mins >= 420 && mins < 570) return { name:'Pre-market', key:'pm', active:true };
+  if (mins >= 570 && mins < 690) return { name:'NY Morning', key:'ny', active:true };
+  return { name:'Off hours', key:'off', active:false };
+}
+
+function updateSessionStatus() {
+  var si = getSessionInfo();
+  var pill = document.getElementById('session-pill');
+  pill.textContent = si.active ? '● ' + si.name + ' LIVE' : 'Market — ' + si.name;
+  pill.className = 'session-pill ' + (si.active ? 'pill-active' : 'pill-inactive');
+
+  ['asia','pm','ny','off'].forEach(function(k) {
+    document.getElementById('sc-'+k).classList.remove('active');
+    document.getElementById('sc-'+k+'-s') && (document.getElementById('sc-'+k+'-s').textContent = k===si.key ? (si.active?'ACTIVE — trading now':'Current period') : 'Waiting');
+  });
+  if (document.getElementById('sc-'+si.key)) document.getElementById('sc-'+si.key).classList.add('active');
+
+  var tape = document.getElementById('tape-session');
+  var tape2 = document.getElementById('tape-session2');
+  if(tape) tape.textContent = si.name;
+  if(tape2) tape2.textContent = si.name;
+}
+
+// ═══════════════ API CONNECT ═══════════════
+function connectApi() {
+  var key = document.getElementById('api-key-input').value.trim();
+  if (!key) { alert('Please paste your Twelve Data API key.'); return; }
+  API_KEY = key;
+  localStorage.setItem('td_api_key', key);
+  document.getElementById('api-banner').classList.add('hidden');
+  isDemoMode = false;
+  showToast('API Connected', 'Twelve Data connected. Scanning for setups...');
+  scanNow();
+}
+
+// ═══════════════ FETCH CANDLES ═══════════════
+async function fetchCandles(symbol, interval, outputsize) {
+  if (isDemoMode) return generateDemoCandles(symbol, interval, outputsize);
+  var url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${API_KEY}&format=JSON`;
+  try {
+    var res = await fetch(url);
+    var data = await res.json();
+    if (data.status === 'error') throw new Error(data.message);
+    return (data.values || []).reverse().map(function(c) {
+      return { o:parseFloat(c.open), h:parseFloat(c.high), l:parseFloat(c.low), c:parseFloat(c.close), t:c.datetime };
+    });
+  } catch(e) {
+    console.error('Fetch error:', e);
+    return null;
+  }
+}
+
+// ═══════════════ DEMO DATA ═══════════════
+function generateDemoCandles(symbol, interval, n) {
+  var base = symbol.includes('ES') ? 5650 : symbol.includes('NQ') || symbol.includes('MNQ') ? 21850 : 21850;
+  var candles = [];
+  var price = base;
+  var now = new Date();
+  for (var i = n; i >= 0; i--) {
+    var t = new Date(now - i * 5 * 60000);
+    var range = base * 0.001;
+    var o = price;
+    var move = (Math.random() - 0.48) * range;
+    var c = o + move;
+    var h = Math.max(o, c) + Math.random() * range * 0.5;
+    var l = Math.min(o, c) - Math.random() * range * 0.5;
+    candles.push({ o:+o.toFixed(2), h:+h.toFixed(2), l:+l.toFixed(2), c:+c.toFixed(2), t:t.toISOString().slice(0,16).replace('T',' ') });
+    price = c;
+  }
+  // Inject a CRT bull setup in the last 4 candles for demo
+  if (candles.length >= 4) {
+    var idx = candles.length - 4;
+    var refHigh = candles[idx].h; var refLow = candles[idx].l;
+    // C2: sweeps below refLow then closes inside
+    candles[idx+1].l = refLow - 25; candles[idx+1].c = refLow + 8; candles[idx+1].o = refLow + 15;
+    // C3: bullish close
+    candles[idx+2].o = candles[idx+1].c; candles[idx+2].c = candles[idx+1].c + 18;
+    candles[idx+2].h = candles[idx+2].c + 5; candles[idx+2].l = candles[idx+2].o - 3;
+  }
+  return candles;
+}
+
+// ═══════════════ CRT DETECTION ═══════════════
+function detectCRT(candles) {
+  if (!candles || candles.length < 4) return null;
+
+  var results = [];
+  var lookback = 3;
+
+  for (var i = lookback; i < candles.length - 1; i++) {
+    // C1 = i-lookback to i-1 (the reference range)
+    var c1High = Math.max(...candles.slice(i-lookback, i).map(c=>c.h));
+    var c1Low  = Math.min(...candles.slice(i-lookback, i).map(c=>c.l));
+    var c1Range = c1High - c1Low;
+    if (c1Range < 5) continue; // too narrow
+
+    var c2 = candles[i];      // sweep candle
+    var c3 = candles[i+1];    // confirmation candle (most recent)
+
+    var sweepBuffer = 2;
+
+    // Bullish: C2 sweeps below C1 low then closes back above it, C3 closes bullish
+    var bullSweep = c2.l < (c1Low - sweepBuffer) && c2.c > c1Low;
+    var bullC3    = c3.c > c3.o && c3.c > c2.c;
+
+    // Bearish: C2 sweeps above C1 high then closes back below it, C3 closes bearish
+    var bearSweep = c2.h > (c1High + sweepBuffer) && c2.c < c1High;
+    var bearC3    = c3.c < c3.o && c3.c < c2.c;
+
+    if (bullSweep && bullC3) {
+      var sl = c2.l - (c1Range * 0.1);
+      var risk = c3.c - sl;
+      results.push({
+        type: 'BULL', direction: 'LONG',
+        c1High, c1Low, c2, c3,
+        entry: +c3.c.toFixed(2),
+        sl: +sl.toFixed(2),
+        tp1: +(c3.c + risk * 1.5).toFixed(2),
+        tp2: +(c3.c + risk * 2.5).toFixed(2),
+        stopPts: +risk.toFixed(1),
+        strength: (i === candles.length - 2) ? 'fresh' : 'prior',
+        barIndex: i
+      });
+    }
+    if (bearSweep && bearC3) {
+      var sl2 = c2.h + (c1Range * 0.1);
+      var risk2 = sl2 - c3.c;
+      results.push({
+        type: 'BEAR', direction: 'SHORT',
+        c1High, c1Low, c2, c3,
+        entry: +c3.c.toFixed(2),
+        sl: +sl2.toFixed(2),
+        tp1: +(c3.c - risk2 * 1.5).toFixed(2),
+        tp2: +(c3.c - risk2 * 2.5).toFixed(2),
+        stopPts: +risk2.toFixed(1),
+        strength: (i === candles.length - 2) ? 'fresh' : 'prior',
+        barIndex: i
+      });
+    }
+  }
+
+  // Return the most recent / freshest signal
+  return results.length ? results[results.length - 1] : null;
+}
+
+// ═══════════════ ASIA RANGE SWEEP ═══════════════
+function detectAsiaSweep(candles, asiaHigh, asiaLow) {
+  if (!candles || candles.length < 2 || !asiaHigh || !asiaLow) return null;
+  var c2 = candles[candles.length - 2];
+  var c3 = candles[candles.length - 1];
+  var buf = 1;
+
+  if (c2.l < asiaLow - buf && c2.c > asiaLow && c3.c > c3.o) {
+    var sl = c2.l - 5;
+    var risk = c3.c - sl;
+    return { type:'ASIA_BULL', direction:'LONG', entry:+c3.c.toFixed(2), sl:+sl.toFixed(2),
+      tp1:+(c3.c+risk*1.5).toFixed(2), tp2:+(c3.c+risk*2.5).toFixed(2), stopPts:+risk.toFixed(1) };
+  }
+  if (c2.h > asiaHigh + buf && c2.c < asiaHigh && c3.c < c3.o) {
+    var sl3 = c2.h + 5;
+    var risk3 = sl3 - c3.c;
+    return { type:'ASIA_BEAR', direction:'SHORT', entry:+c3.c.toFixed(2), sl:+sl3.toFixed(2),
+      tp1:+(c3.c-risk3*1.5).toFixed(2), tp2:+(c3.c-risk3*2.5).toFixed(2), stopPts:+risk3.toFixed(1) };
+  }
+  return null;
+}
+
+// ═══════════════ HTF BIAS ═══════════════
+function analyzeHTF(candles1h) {
+  if (!candles1h || candles1h.length < 6) return null;
+  var recent = candles1h.slice(-6);
+  var highs = recent.map(c=>c.h);
+  var lows  = recent.map(c=>c.l);
+  var closes= recent.map(c=>c.c);
+
+  // Simple HH/HL or LH/LL detection
+  var hh = highs[highs.length-1] > highs[highs.length-3];
+  var hl = lows[lows.length-1] > lows[lows.length-3];
+  var lh = highs[highs.length-1] < highs[highs.length-3];
+  var ll = lows[lows.length-1] < lows[lows.length-3];
+
+  var rangeHigh = Math.max(...candles1h.slice(-20).map(c=>c.h));
+  var rangeLow  = Math.min(...candles1h.slice(-20).map(c=>c.l));
+  var rangeMid  = (rangeHigh + rangeLow) / 2;
+  var currentPrice = closes[closes.length-1];
+  var zone = currentPrice > rangeMid ? 'Premium' : 'Discount';
+
+  var trend4h = (closes[closes.length-1] > closes[0]) ? 'Bullish' : 'Bearish';
+  var struct1h = (hh && hl) ? 'HH + HL (Bullish)' : (lh && ll) ? 'LH + LL (Bearish)' : 'Mixed / Chop';
+  var bias = (trend4h === 'Bullish' && struct1h.includes('Bullish') && zone === 'Discount') ? 'BULLISH' :
+             (trend4h === 'Bearish' && struct1h.includes('Bearish') && zone === 'Premium') ? 'BEARISH' : 'NEUTRAL';
+
+  return { trend4h, struct1h, zone, bias, rangeHigh, rangeLow, rangeMid, currentPrice };
+}
+
+// ═══════════════ SMT CHECK ═══════════════
+function checkSMT(nqCandles, esCandles) {
+  if (!nqCandles || !esCandles || nqCandles.length < 2 || esCandles.length < 2) return null;
+  var nqLen = nqCandles.length, esLen = esCandles.length;
+  var nqLast = nqCandles[nqLen-1]; var nqPrev = nqCandles[nqLen-2];
+  var esLast = esCandles[esLen-1]; var esPrev = esCandles[esLen-2];
+
+  var nqNewHigh = nqLast.h > nqPrev.h;
+  var nqNewLow  = nqLast.l < nqPrev.l;
+  var esNewHigh = esLast.h > esPrev.h;
+  var esNewLow  = esLast.l < esPrev.l;
+
+  // Divergence = NQ makes new extreme but ES doesn't (or vice versa)
+  var bullDivergence = nqNewLow && !esNewLow;   // NQ new low, ES didn't confirm → bearish sweep is fake → LONG signal
+  var bearDivergence = nqNewHigh && !esNewHigh; // NQ new high, ES didn't confirm → bullish sweep is fake → SHORT signal
+
+  return { bullDivergence, bearDivergence, divergence: bullDivergence || bearDivergence };
+}
+
+// ═══════════════ MAIN SCAN ═══════════════
+async function scanNow() {
+  if (!API_KEY && !isDemoMode) {
+    document.getElementById('refresh-info').textContent = 'No API key — paste your Twelve Data key above or use demo data';
+    return;
+  }
+
+  document.getElementById('refresh-info').textContent = 'Scanning...';
+  scanCount++;
+  document.getElementById('scan-count').textContent = scanCount + ' scan' + (scanCount!==1?'s':'');
+
+  try {
+    // Fetch NQ 5M and 1H candles, ES 5M candles
+    var [nq5m, nq1h, es5m] = await Promise.all([
+      fetchCandles('NQ1', '5min', 30),
+      fetchCandles('NQ1', '1h', 24),
+      fetchCandles('ES1', '5min', 30)
+    ]);
+
+    lastNQCandles = nq5m || [];
+    lastESCandles = es5m || [];
+
+    // Update prices
+    if (nq5m && nq5m.length) {
+      var nqLast = nq5m[nq5m.length-1];
+      var nqPrev = nq5m[nq5m.length-2] || nqLast;
+      var nqChg  = nqLast.c - nqPrev.c;
+      var nqChgPct = (nqChg/nqPrev.c*100).toFixed(2);
+      document.getElementById('smt-nq-price').textContent = nqLast.c.toFixed(2);
+      document.getElementById('smt-nq-change').innerHTML = `<span style="color:${nqChg>=0?'var(--green)':'var(--red)'}">${nqChg>=0?'+':''}${nqChg.toFixed(2)} (${nqChgPct}%)</span>`;
+      var nqSH = Math.max(...nq5m.slice(-78).map(c=>c.h)).toFixed(2);
+      var nqSL = Math.min(...nq5m.slice(-78).map(c=>c.l)).toFixed(2);
+      document.getElementById('smt-nq-sh').textContent = nqSH;
+      document.getElementById('smt-nq-sl').textContent = nqSL;
+      ['tape-mnq','tape-mnq2','tape-nq','tape-nq2'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if(el) el.innerHTML = `<span class="${nqChg>=0?'tape-up':'tape-dn'}">${nqLast.c.toFixed(2)} ${nqChg>=0?'▲':'▼'}${Math.abs(nqChg).toFixed(1)}</span>`;
+      });
+    }
+    if (es5m && es5m.length) {
+      var esLast = es5m[es5m.length-1];
+      var esPrev = es5m[es5m.length-2] || esLast;
+      var esChg  = esLast.c - esPrev.c;
+      var esChgPct = (esChg/esPrev.c*100).toFixed(2);
+      document.getElementById('smt-es-price').textContent = esLast.c.toFixed(2);
+      document.getElementById('smt-es-change').innerHTML = `<span style="color:${esChg>=0?'var(--green)':'var(--red)'}">${esChg>=0?'+':''}${esChg.toFixed(2)} (${esChgPct}%)</span>`;
+      var esSH = Math.max(...es5m.slice(-78).map(c=>c.h)).toFixed(2);
+      var esSL = Math.min(...es5m.slice(-78).map(c=>c.l)).toFixed(2);
+      document.getElementById('smt-es-sh').textContent = esSH;
+      document.getElementById('smt-es-sl').textContent = esSL;
+      ['tape-es','tape-es2'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(el) el.innerHTML=`<span class="${esChg>=0?'tape-up':'tape-dn'}">${esLast.c.toFixed(2)} ${esChg>=0?'▲':'▼'}${Math.abs(esChg).toFixed(1)}</span>`;
+      });
+    }
+
+    // HTF Bias
+    var htfData = analyzeHTF(nq1h);
+    if (htfData) {
+      var biasCol = htfData.bias==='BULLISH'?'var(--green)':htfData.bias==='BEARISH'?'var(--red)':'var(--amber)';
+      document.getElementById('htf-4h').textContent = htfData.trend4h;
+      document.getElementById('htf-4h').style.color = htfData.trend4h==='Bullish'?'var(--green)':'var(--red)';
+      document.getElementById('htf-1h').textContent = htfData.struct1h.split(' ')[0];
+      document.getElementById('htf-1h').style.color = htfData.struct1h.includes('Bullish')?'var(--green)':htfData.struct1h.includes('Bearish')?'var(--red)':'var(--amber)';
+      document.getElementById('htf-zone').textContent = htfData.zone;
+      document.getElementById('htf-zone').style.color = htfData.zone==='Discount'?'var(--green)':'var(--red)';
+      document.getElementById('htf-bias').textContent = htfData.bias;
+      document.getElementById('htf-bias').style.color = biasCol;
+      document.getElementById('htf-sentence').innerHTML = `<span style="color:${biasCol};font-weight:700">${htfData.bias} BIAS</span> — 4H trend is ${htfData.trend4h.toLowerCase()}, 1H structure shows ${htfData.struct1h.toLowerCase()}. Price is in a <strong>${htfData.zone.toLowerCase()} zone</strong> (mid: ${htfData.rangeMid.toFixed(0)}). ${htfData.bias==='BULLISH'?'Look for <strong style="color:var(--green)">LONG</strong> CRT setups — wait for a sweep of a session low.':htfData.bias==='BEARISH'?'Look for <strong style="color:var(--red)">SHORT</strong> CRT setups — wait for a sweep of a session high.':'<strong style="color:var(--amber)">NEUTRAL/CHOP</strong> — reduce size or sit out until bias clarifies.'}`;
+    }
+
+    // Key Levels
+    if (nq5m && nq5m.length && nq1h && nq1h.length) {
+      var pdh = Math.max(...nq1h.slice(-48,-24).map(c=>c.h));
+      var pdl = Math.min(...nq1h.slice(-48,-24).map(c=>c.l));
+      var asiaCandles = nq5m.slice(0, 36); // rough Asia window from earlier candles
+      var asiaHigh = Math.max(...asiaCandles.map(c=>c.h));
+      var asiaLow  = Math.min(...asiaCandles.map(c=>c.l));
+      var currentPx = nq5m[nq5m.length-1].c;
+      var dist = function(p) { return Math.abs(p-currentPx).toFixed(0)+' pts away'; };
+
+      var levels = [
+        { name:'PDH', price:pdh, color:'var(--blue)' },
+        { name:'PDL', price:pdl, color:'var(--blue)' },
+        { name:'Asia High', price:asiaHigh, color:'var(--purple)' },
+        { name:'Asia Low',  price:asiaLow,  color:'var(--purple)' },
+      ];
+      if (htfData) {
+        levels.push({ name:'Range High', price:htfData.rangeHigh, color:'var(--amber)' });
+        levels.push({ name:'Range Mid',  price:htfData.rangeMid,  color:'var(--text3)' });
+        levels.push({ name:'Range Low',  price:htfData.rangeLow,  color:'var(--amber)' });
+      }
+      levels.sort(function(a,b){return b.price-a.price});
+      document.getElementById('levels-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'}) + ' ET';
+      document.getElementById('levels-list').innerHTML = levels.map(function(l) {
+        var nearClass = Math.abs(l.price-currentPx) < 20 ? 'font-weight:700;' : '';
+        return `<div class="level-row">
+          <div class="level-dot" style="background:${l.color}"></div>
+          <div class="level-name">${l.name}</div>
+          <div class="level-price" style="${nearClass}">${l.price.toFixed(2)}</div>
+          <div class="level-dist">${dist(l.price)}</div>
+        </div>`;
+      }).join('');
+
+      // Run setups
+      var crtSignal = detectCRT(nq5m);
+      var asiaSweep = detectAsiaSweep(nq5m, asiaHigh, asiaLow);
+      var smtData   = checkSMT(nq5m, es5m);
+      var signal    = asiaSweep || crtSignal;
+
+      // SMT display
+      if (smtData) {
+        document.getElementById('smt-diverge').classList.toggle('show', smtData.divergence);
+        document.getElementById('smt-confirm').classList.toggle('show', !smtData.divergence);
+        if (smtData.bullDivergence) document.getElementById('smt-diverge').textContent = '⚡ BULLISH SMT DIVERGENCE — NQ made a new low but ES did NOT confirm. The NQ sweep is likely fake — potential LONG setup.';
+        if (smtData.bearDivergence) document.getElementById('smt-diverge').textContent = '⚡ BEARISH SMT DIVERGENCE — NQ made a new high but ES did NOT confirm. The NQ sweep is likely fake — potential SHORT setup.';
+      }
+
+      // Render signal
+      renderSignal(signal, smtData, htfData);
+
+      // Candle chart
+      renderCandles(nq5m.slice(-12), signal);
+    }
+
+    // Add scan log entry
+    var si = getSessionInfo();
+    var logEntry = document.createElement('div');
+    logEntry.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border)';
+    logEntry.innerHTML = `<span style="color:var(--text2)">${new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span> — ${si.name} — ${currentSignal ? '<span style="color:var(--green)">'+currentSignal.type+' signal detected</span>' : 'No signal'}`;
+    var log = document.getElementById('scan-log');
+    log.insertBefore(logEntry, log.firstChild);
+    if (log.children.length > 20) log.removeChild(log.lastChild);
+
+    document.getElementById('refresh-info').textContent = `Last scanned: ${new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York'})} ET (${isDemoMode?'demo data':'live data'})`;
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'}) + ' ET';
+
+    ['tape-signal','tape-signal2'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.innerHTML = currentSignal
+        ? `<span class="tape-up">${currentSignal.type} SETUP ACTIVE</span>`
+        : '<span style="color:var(--text3)">scanning</span>';
+    });
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('refresh-info').textContent = 'Scan error — check console or verify API key';
+  }
+}
+
+// ═══════════════ RENDER SIGNAL ═══════════════
+function renderSignal(signal, smtData, htfData) {
+  var box = document.getElementById('signal-box');
+  var plan = document.getElementById('trade-plan');
+
+  if (!signal) {
+    currentSignal = null;
+    box.className = 'signal-box signal-none';
+    document.getElementById('signal-chips').innerHTML = '<span class="chip chip-dim">SCANNING</span>';
+    document.getElementById('signal-grade').textContent = '—';
+    document.getElementById('signal-grade').style.color = 'var(--text3)';
+    document.getElementById('signal-type').textContent = 'No active signal';
+    document.getElementById('signal-type').style.color = 'var(--text3)';
+    document.getElementById('signal-desc').textContent = 'No CRT setup detected in current window. Check back at session open or when price approaches key levels.';
+    plan.style.display = 'none';
+    ['tape-signal','tape-signal2'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<span style="color:var(--text3)">no signal</span>';});
+    return;
+  }
+
+  currentSignal = signal;
+  var isBull = signal.direction === 'LONG';
+  var hasSMT = smtData && ((isBull && smtData.bullDivergence) || (!isBull && smtData.bearDivergence));
+  var htfAgrees = htfData && ((isBull && htfData.bias==='BULLISH') || (!isBull && htfData.bias==='BEARISH'));
+  var isAsia = signal.type && signal.type.includes('ASIA');
+
+  // Grade
+  var grade = 'B';
+  if (hasSMT && htfAgrees) grade = 'A+';
+  else if (hasSMT || htfAgrees) grade = 'A';
+
+  var chips = '';
+  chips += `<span class="chip ${isBull?'chip-green':'chip-red'}">${isBull?'LONG':'SHORT'}</span>`;
+  chips += `<span class="chip chip-blue">Grade ${grade}</span>`;
+  if (isAsia) chips += `<span class="chip chip-purple">Asia sweep</span>`;
+  else chips += `<span class="chip chip-blue">CRT C3</span>`;
+  if (hasSMT) chips += `<span class="chip chip-amber">SMT ✓</span>`;
+  if (htfAgrees) chips += `<span class="chip chip-green">HTF aligned</span>`;
+
+  box.className = `signal-box ${isBull ? 'signal-bull' : 'signal-bear'}`;
+  document.getElementById('signal-chips').innerHTML = chips;
+  document.getElementById('signal-grade').textContent = grade;
+  document.getElementById('signal-grade').style.color = isBull ? 'var(--green)' : 'var(--red)';
+  document.getElementById('signal-type').textContent = (isAsia ? 'Asia ' : 'NY ') + (isBull ? 'Bullish' : 'Bearish') + ' CRT Setup';
+  document.getElementById('signal-type').style.color = isBull ? 'var(--green)' : 'var(--red)';
+
+  var descParts = [
+    `${isBull ? 'C2 swept below' : 'C2 swept above'} the ${isAsia ? 'Asia session ' : ''}${isBull ? 'low' : 'high'} and closed back inside.`,
+    `C3 confirmed ${isBull ? 'bullish' : 'bearish'} direction.`,
+    hasSMT ? `SMT divergence confirmed on ES — the sweep is institutional manipulation, NOT a real breakout.` : `Check ES for SMT divergence before entering.`,
+    htfAgrees ? `HTF bias is aligned ${isBull?'bullish':'bearish'} — setup has full confluence.` : `HTF bias is ${htfData?htfData.bias:'unclear'} — take with caution.`
+  ];
+  document.getElementById('signal-desc').textContent = descParts.join(' ');
+
+  // Trade plan
+  plan.style.display = 'block';
+  var stopPts = +signal.stopPts.toFixed(1);
+  var risk2 = (2 * stopPts * 2).toFixed(0);
+  var win2  = (2 * stopPts * 1.5 * 2).toFixed(0);
+  var risk3 = (3 * stopPts * 2).toFixed(0);
+  var win3  = (3 * stopPts * 1.5 * 2).toFixed(0);
+
+  document.getElementById('plan-entry').textContent = signal.entry;
+  document.getElementById('plan-sl').textContent = signal.sl + ' (' + (isBull ? signal.entry - signal.sl : signal.sl - signal.entry).toFixed(1) + ' pts below entry)';
+  document.getElementById('plan-tp1').textContent = signal.tp1;
+  document.getElementById('plan-tp2').textContent = signal.tp2;
+  document.getElementById('plan-stop-pts').textContent = stopPts + ' pts';
+  document.getElementById('plan-risk2').textContent = '−$' + risk2;
+  document.getElementById('plan-win2').textContent = '+$' + win2;
+  document.getElementById('plan-risk3').textContent = '−$' + risk3;
+  document.getElementById('plan-win3').textContent = '+$' + win3;
+
+  // Toast notification
+  showToast(
+    `${grade} ${isBull?'LONG':'SHORT'} CRT SETUP`,
+    `Entry: ${signal.entry} | SL: ${signal.sl} | TP1: ${signal.tp1} | Stop: ${stopPts}pts | Risk@2MNQ: $${risk2} | Win@2MNQ: $${win2}`
+  );
+}
+
+// ═══════════════ CANDLE CHART ═══════════════
+function renderCandles(candles, signal) {
+  if (!candles || !candles.length) return;
+  var strip = document.getElementById('candle-strip');
+  var maxH = Math.max(...candles.map(c=>c.h));
+  var minL = Math.min(...candles.map(c=>c.l));
+  var range = maxH - minL || 1;
+  var height = 70;
+
+  var signalBarIdx = signal ? candles.length - 2 : -1; // C2 is second to last
+  var c3Idx = signal ? candles.length - 1 : -1;
+  var c1Idx = signal ? candles.length - 4 : -1;
+
+  strip.innerHTML = candles.map(function(c, i) {
+    var bodyH = Math.max(1, Math.abs(c.c - c.o) / range * height);
+    var bodyTop = (1 - Math.max(c.c, c.o) / (maxH - minL + minL/maxH)) * height;
+    var wickH = (c.h - c.l) / range * height;
+    var wickTop = (1 - c.h / (maxH - minL + minL/maxH)) * height;
+    var isBull = c.c >= c.o;
+
+    var cls = i === c3Idx ? 'candle-wrap c-c3' :
+              i === signalBarIdx ? 'candle-wrap c-c2' :
+              i === c1Idx ? 'candle-wrap c-c1' :
+              'candle-wrap ' + (isBull ? 'c-bull' : 'c-bear');
+
+    var bodyPct = Math.round(Math.abs(c.c-c.o)/range*100);
+    var wickPct = Math.round((c.h-c.l)/range*100);
+    var label = i === c3Idx ? 'C3' : i === signalBarIdx ? 'C2' : i === c1Idx ? 'C1' : '';
+
+    return `<div class="${cls}" style="position:relative">
+      <div class="candle-wick" style="height:${Math.max(2,wickPct)}%;align-self:flex-start;margin-top:${Math.max(0,100-wickPct-bodyPct)/2}%"></div>
+      <div class="candle-body" style="height:${Math.max(2,bodyPct)}%"></div>
+      ${label ? `<div class="candle-label" style="color:${i===c3Idx?'var(--green)':i===signalBarIdx?'var(--purple)':'var(--blue)'}">${label}</div>` : '<div class="candle-label"></div>'}
+    </div>`;
+  }).join('');
+
+  if (candles.length) {
+    document.getElementById('candle-time-label').textContent = candles[candles.length-1].t || '';
+  }
+}
+
+// ═══════════════ DEMO MODE ═══════════════
+function loadDemo() {
+  isDemoMode = true;
+  API_KEY = 'DEMO';
+  document.getElementById('api-banner').classList.add('hidden');
+  document.getElementById('refresh-info').textContent = 'Demo mode — using simulated data. Connect real API key for live data.';
+  showToast('Demo mode active', 'Using simulated MNQ data with a sample CRT setup injected.');
+  scanNow();
+}
+
+// ═══════════════ AUTO REFRESH ═══════════════
+function toggleAuto(on) {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  if (on) autoInterval = setInterval(scanNow, 5 * 60 * 1000);
+}
+
+// ═══════════════ TOAST ═══════════════
+function showToast(title, body) {
+  var t = document.getElementById('toast');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-body').textContent = body;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 6000);
+}
+
+// ═══════════════ CHECKLIST ═══════════════
+function buildChecklist() {
+  document.querySelectorAll('#checklist-items .check-item').forEach(function(item) {
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', function() {
+      var icon = this.querySelector('.check-icon');
+      var checked = icon.textContent === '✅';
+      icon.textContent = checked ? '⬜' : '✅';
+      this.style.color = checked ? 'var(--text2)' : 'var(--text3)';
+      this.style.textDecoration = checked ? 'none' : 'line-through';
+    });
+  });
+}
+
+function resetChecklist() {
+  document.querySelectorAll('#checklist-items .check-item').forEach(function(item) {
+    item.querySelector('.check-icon').textContent = '⬜';
+    item.style.color = 'var(--text2)';
+    item.style.textDecoration = 'none';
+  });
+}
+</script>
+</body>
+</html>
